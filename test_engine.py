@@ -1,25 +1,26 @@
 import core_engine
 import time
-import os
 
-# Define a Python workload to be scheduled by the C++ engine
-def heavy_math_workload(job_id):
-    print(f"[Python] Job {job_id} running concurrently on Process PID: {os.getpid()}")
-    time.sleep(1) # Simulate complex arithmetic blocking
-    print(f"[Python] Job {job_id} successfully completed.")
+def execute_step(node_name):
+    print(f"[DAG Activity] Processing: {node_name}")
+    time.sleep(0.4)
 
 if __name__ == "__main__":
-    print("Initializing C++ Concurrency Engine...")
-    # Spin up the scheduler with 4 underlying C++ worker threads
+    # Initialize with multiple workers to track concurrency
     scheduler = core_engine.JobScheduler(threads=4)
 
-    print("Submitting 6 Python workloads to the C++ priority queues...")
-    for i in range(6):
-        # Pass lambda tasks into the compiled C++ framework
-        scheduler.submit_job(lambda idx=i: heavy_math_workload(idx))
+    print("Populating Directed Acyclic Graph structure asynchronously...")
 
-    print("Main program thread continuing execution asynchronously...")
-    # Give the background worker threads time to finish processing
-    time.sleep(3)
-    print("Execution complete.")
+    # Node 4 requires both 2 and 3 to exit first. It has high priority (0) but must wait.
+    scheduler.submit_job(id=4, priority=0, parents=[2, 3], func=lambda: execute_step("Node 4 (Terminal Sink)"))
+
+    # Nodes 2 and 3 require Node 1 to exit first.
+    scheduler.submit_job(id=2, priority=5, parents=[1], func=lambda: execute_step("Node 2 (Branch Alpha)"))
+    scheduler.submit_job(id=3, priority=2, parents=[1], func=lambda: execute_step("Node 3 (Branch Beta)"))
+
+    # Node 1 has no parents. It triggers the entire system cascade.
+    scheduler.submit_job(id=1, priority=10, parents=[], func=lambda: execute_step("Node 1 (Root Ingestion)"))
+
+    print("Graph topology registered. Evaluating thread-safe node resolution...")
+    time.sleep(2.0)
 

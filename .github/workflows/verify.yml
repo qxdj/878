@@ -1,0 +1,38 @@
+name: Hybrid Engine Compilation & Verification
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-size: small
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python Runtime Environment
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install Compilers and Build Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++ build-essential python3-dev
+        python -m pip install --upgrade pip
+        pip install pybind11
+
+    - name: Compile Cross-Language C++ Engine Binary
+      run: |
+        g++ -O3 -Wall -shared -std=c++17 -fPIC $(python3 -m pybind11 --includes) bindings.cpp -o core_engine$(python3-config --extension-suffix) -pthread
+
+    - name: Execute Thread-Safe DAG Topological Suite
+      run: |
+        python3 test_engine.py
+
